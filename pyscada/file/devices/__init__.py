@@ -142,6 +142,9 @@ class GenericDevice:
                     return None
             value = self.read_from_local_file(file_path, variable_instance, timeout)
         elif self._device.filedevice.protocol == 1:  # file over ssh
+            if self.inst is None:
+                logger.warning(f"Device {self._device} not connected. Cannot read file over ssh.")
+                return None
             file_path = self._device.filedevice.file_path
             program = variable_instance.filevariable.program
             command = variable_instance.filevariable.command
@@ -168,12 +171,11 @@ class GenericDevice:
         value = None
         try:
             open(file_path, "r")
-            cmd = [variable_instance.filevariable.program, variable_instance.filevariable.command, file_path]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-            value = result.stdout
-
             program = variable_instance.filevariable.program
             command = variable_instance.filevariable.command
+            cmd = [program, command, file_path]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            value = result.stdout
 
             if result.stderr != '':
                 logger.warning(
@@ -224,6 +226,9 @@ class GenericDevice:
                             self.write_to_local_file(self, file_path, var, timeout)
 
                         elif self._device.filedevice.protocol == 1:  # file over ssh
+                            if self.inst is None:
+                                logger.warning(f"Device {self._device} not connected. Cannot write file over ssh.")
+                                return None
                             file_path = self._device.filedevice.file_path
                             program = var.filevariable.program
                             command = var.filevariable.command.replace('$value$', str(value))
@@ -270,13 +275,15 @@ class GenericDevice:
             logger.warning(traceback.format_exc())
         return value
 
-
     def time(self):
         return time()
 
     def download(self):
         try:
             if self._device.filedevice.protocol < 2:
+                return False
+            if self.inst is None:
+                logger.warning(f"Device {self._device} not connected. Cannot download file.")
                 return False
             if not hasattr(self.inst, 'path'):
                 return False
@@ -287,6 +294,8 @@ class GenericDevice:
             else:
                 logger.warning(
                     f'{self._device.filedevice.file_path} is not a file on FTP {self._device.filedevice.host}')
+        except ftputil.error.FTPOSError as e:
+            logger.info(f'FTP connection to {self._device} return {e}')
         except Exception as e:
             logger.warning(traceback.format_exc())
         return False
@@ -294,6 +303,9 @@ class GenericDevice:
     def upload(self):
         try:
             if self._device.filedevice.protocol < 2:
+                return False
+            if self.inst is None:
+                logger.warning(f"Device {self._device} not connected. Cannot upload file.")
                 return False
             if os.path.isfile(self._device.filedevice.local_temporary_file_copy_path):
                 self.inst.upload(self._device.filedevice.local_temporary_file_copy_path,
