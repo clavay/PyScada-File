@@ -3,6 +3,7 @@
 from __future__ import unicode_literals
 from .. import PROTOCOL_ID
 from pyscada.models import DeviceProtocol
+from pyscada.device import GenericHandlerDevice
 
 import subprocess
 import traceback
@@ -30,13 +31,12 @@ except ImportError:
     driver_ok = False
 
 
-class GenericDevice:
+class GenericDevice(GenericHandlerDevice):
     def __init__(self, pyscada_device, variables):
-        self._device = pyscada_device
-        self._variables = variables
-        self.inst = None
+        super().__init__(pyscada_device, variables)
+        self.driver_ok = driver_ok
+        self._protocol = PROTOCOL_ID
         self.last_value = None
-        self._device_not_accessible = 0
         self.my_session_factory = None
         self.t = None
 
@@ -44,21 +44,29 @@ class GenericDevice:
         """
         establish a connection to the Instrument
         """
-        if not driver_ok:
-            return False
+        super().connect()
 
-        if self._device.protocol.id != PROTOCOL_ID:
-            logger.error("Wrong handler selected : it's for %s device while device protocol is %s" %
-                         (str(DeviceProtocol.objects.get(id=PROTOCOL_ID)).upper(),
-                          str(self._device.protocol).upper()))
-            return False
+        connected = True
 
         if self._device.filedevice.protocol == 0:
+            # To handle the disconnect function
             class Inst:
                 def close(self):
                     pass
 
             self.inst = Inst()
+
+            file_path = self._device.filedevice.file_path
+            try:
+                open(file_path, "r")
+            except FileNotFoundError:
+                try:
+                    Path(file_path).touch()
+                    logger.info(f'{file_path} does not exit, touching it.')
+                except PermissionError:
+                    # logger.warning(f'pyscada user is not allowed to create the file {file_path}')
+                    self._not_accessible_reason = f'pyscada user is not allowed to create the file {file_path}'
+                    connected = False
 
         elif self._device.filedevice.protocol == 1:
             hostname = self._device.filedevice.host
@@ -72,10 +80,12 @@ class GenericDevice:
             self.inst.set_missing_host_key_policy(paramiko.WarningPolicy())
             try:
                 self.inst.connect(hostname, port, username, password, timeout=timeout)
-            except (
-            socket.gaierror, paramiko.ssh_exception.SSHException, paramiko.ssh_exception.AuthenticationException) as e:
-                logger.warning(e)
+            except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
+                    socket.timeout, paramiko.ssh_exception.AuthenticationException) as e:
+                # logger.warning(e)
+                self._not_accessible_reason = e
                 self.inst = None
+                connected = False
 
         elif self._device.filedevice.protocol == 2:
             self.my_session_factory = ftputil.session.session_factory(port=self._device.filedevice.port,
@@ -90,17 +100,13 @@ class GenericDevice:
             except ftputil.error.FTPOSError:
                 pass
             except Exception as e:
-                logger.warning(traceback.format_exc())
+                self._not_accessible_reason = e
+                # logger.warning(traceback.format_exc())
 
-        if self.inst is not None:
-            if self._device_not_accessible < 1:
-                self._device_not_accessible = 1
-                logger.info('Connected to File : {}'.format(self._device))
-        else:
-            if self._device_not_accessible > -1:
-                self._device_not_accessible = -1
-                logger.info('File {} is not accessible'.format(self._device))
-        return True
+            connected = self.download()
+
+        self.accessibility()
+        return connected
 
     def disconnect(self):
         if self.inst is not None:
@@ -108,18 +114,6 @@ class GenericDevice:
             self.inst = None
             return True
         return False
-
-    def before_read(self):
-        """
-        will be called before the first read_data
-        """
-        return None
-
-    def after_read(self):
-        """
-        will be called after the last read_data
-        """
-        return None
 
     def read_data(self, variable_instance):
         """
@@ -131,15 +125,6 @@ class GenericDevice:
             return None
         if self._device.filedevice.protocol == 0:  # local file
             file_path = self._device.filedevice.file_path
-            try:
-                open(file_path, "r")
-            except FileNotFoundError:
-                try:
-                    Path(file_path).touch()
-                    logger.info(f'{file_path} does not exit, touching it.')
-                except PermissionError:
-                    logger.warning(f'pyscada user is not allowed to create the file {file_path}')
-                    return None
             value = self.read_from_local_file(file_path, variable_instance, timeout)
         elif self._device.filedevice.protocol == 1:  # file over ssh
             if self.inst is None:
@@ -158,11 +143,6 @@ class GenericDevice:
                 value = None
         elif self._device.filedevice.protocol == 2:  # file downloaded over ftp
             file_path = self._device.filedevice.local_temporary_file_copy_path
-            try:
-                open(file_path, "r")
-            except FileNotFoundError:
-                logger.warning(f'Cannot open FTP file downloaded : {file_path}')
-                return None
             value = self.read_from_local_file(file_path, variable_instance, timeout)
 
         return value
@@ -187,31 +167,12 @@ class GenericDevice:
             logger.warning(traceback.format_exc())
         return value
 
-    def read_data_and_time(self, variable_instance):
-        """
-        read values and timestamps from the device
-        """
-
-        return self.read_data(variable_instance), self.time()
-
-    def read_data_all(self, variables_dict):
-        output = []
-
-        if self.connect() and (self._device.filedevice.protocol < 2 or self.download()):
-            for item in variables_dict.values():
-                value, read_time = self.read_data_and_time(item)
-
-                if value is not None and item.update_value(value, read_time):
-                    output.append(item.create_recorded_data_element())
-        self.disconnect()
-        return output
-
     def write_data(self, variable_id, value, task):
         """
         write values to the device
         """
         try:
-            if self.connect() and (self._device.filedevice.protocol < 2 or self.download()):
+            if self.connect():
                 for var in self._variables:
                     var = self._variables[var]
                     if variable_id == var.id:
@@ -275,30 +236,38 @@ class GenericDevice:
             logger.warning(traceback.format_exc())
         return value
 
-    def time(self):
-        return time()
-
     def download(self):
         try:
             if self._device.filedevice.protocol < 2:
+                self._not_accessible_reason = "Wrong protocol"
                 return False
             if self.inst is None:
-                logger.warning(f"Device {self._device} not connected. Cannot download file.")
+                self._not_accessible_reason = f"Device {self._device} not connected. Cannot download file."
                 return False
             if not hasattr(self.inst, 'path'):
+                self._not_accessible_reason = "FTP instrument has not path functions"
                 return False
             if self.inst.path.isfile(self._device.filedevice.file_path):
                 self.inst.download(self._device.filedevice.file_path,
                                    self._device.filedevice.local_temporary_file_copy_path)
-                return True
             else:
-                logger.warning(
-                    f'{self._device.filedevice.file_path} is not a file on FTP {self._device.filedevice.host}')
+                self._not_accessible_reason = f'{self._device.filedevice.file_path} is not a file on FTP {self._device.filedevice.host}'
+                return False
         except ftputil.error.FTPOSError as e:
-            logger.info(f'FTP connection to {self._device} return {e}')
+            self._not_accessible_reason = f'FTP connection to {self._device} return {e}'
+            return False
         except Exception as e:
-            logger.warning(traceback.format_exc())
-        return False
+            # logger.warning(traceback.format_exc())
+            self._not_accessible_reason = e
+            return False
+
+        file_path = self._device.filedevice.local_temporary_file_copy_path
+        try:
+            open(file_path, "r")
+        except FileNotFoundError:
+            self._not_accessible_reason = f'Cannot open downloaded FTP file : {file_path}'
+            return False
+        return True
 
     def upload(self):
         try:

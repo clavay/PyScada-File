@@ -6,7 +6,7 @@ from .models import FileDevice, FileVariable, ExtendedFileDevice, \
     ExtendedFileVariable
 
 from django.dispatch import receiver
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 
 import logging
 
@@ -29,3 +29,21 @@ def _reinit_daq_daemons(sender, instance, **kwargs):
         post_save.send_robust(sender=Variable, instance=Variable.objects.get(pk=instance.pk))
     elif type(instance) is ExtendedFileDevice:
         post_save.send_robust(sender=Device, instance=Device.objects.get(pk=instance.pk))
+
+
+@receiver(pre_delete, sender=FileDevice)
+@receiver(pre_delete, sender=FileVariable)
+@receiver(pre_delete, sender=ExtendedFileVariable)
+@receiver(pre_delete, sender=ExtendedFileDevice)
+def _del_daq_daemons(sender, instance, **kwargs):
+    """
+    update the daq daemon configuration when changes be applied in the models
+    """
+    if type(instance) is FileDevice:
+        pre_delete.send_robust(sender=Device, instance=instance.file_device)
+    elif type(instance) is FileVariable:
+        pre_delete.send_robust(sender=Variable, instance=instance.file_variable)
+    elif type(instance) is ExtendedFileVariable:
+        pre_delete.send_robust(sender=Variable, instance=Variable.objects.get(pk=instance.pk))
+    elif type(instance) is ExtendedFileDevice:
+        pre_delete.send_robust(sender=Device, instance=Device.objects.get(pk=instance.pk))
