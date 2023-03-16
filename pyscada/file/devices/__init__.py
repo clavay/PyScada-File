@@ -133,10 +133,17 @@ class GenericDevice(GenericHandlerDevice):
             file_path = self._device.filedevice.file_path
             program = variable_instance.filevariable.program
             command = variable_instance.filevariable.command
-            stdin, stdout, stderr = self.inst.exec_command(str(program) + ' ' + str(repr(command)) + ' ' + str(file_path),
-                                                           timeout=timeout)
+            try:
+                stdin, stdout, stderr = self.inst.exec_command(str(program) + ' ' + str(repr(command)) + ' ' +
+                                                               str(file_path), timeout=timeout)
+            except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
+                    socket.timeout, paramiko.ssh_exception.AuthenticationException) as e:
+                #logger.warning(f'Error while reading to file {self._device} : {e}')
+                pass
             value = stdout.read().decode()
+            value = value[:-1] if value.endswith('\n') else value
             err = stderr.read().decode()
+            err = err[:-1] if err.endswith('\n') else err
             if err != '':
                 logger.warning(
                     f'{program} cmd ({command}) return an error : {err}')
