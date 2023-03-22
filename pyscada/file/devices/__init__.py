@@ -81,7 +81,8 @@ class GenericDevice(GenericHandlerDevice):
             try:
                 self.inst.connect(hostname, port, username, password, timeout=timeout)
             except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
-                    socket.timeout, paramiko.ssh_exception.AuthenticationException) as e:
+                    socket.timeout, paramiko.ssh_exception.AuthenticationException,
+                    paramiko.ssh_exception.NoValidConnectionsError) as e:
                 # logger.warning(e)
                 self._not_accessible_reason = e
                 self.inst = None
@@ -137,17 +138,19 @@ class GenericDevice(GenericHandlerDevice):
                 stdin, stdout, stderr = self.inst.exec_command(str(program) + ' ' + str(repr(command)) + ' ' +
                                                                str(file_path), timeout=timeout)
             except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
-                    socket.timeout, paramiko.ssh_exception.AuthenticationException) as e:
+                    socket.timeout, paramiko.ssh_exception.AuthenticationException,
+                    paramiko.ssh_exception.NoValidConnectionsError) as e:
                 #logger.warning(f'Error while reading to file {self._device} : {e}')
                 pass
-            value = stdout.read().decode()
-            value = value[:-1] if value.endswith('\n') else value
-            err = stderr.read().decode()
-            err = err[:-1] if err.endswith('\n') else err
-            if err != '':
-                logger.warning(
-                    f'{program} cmd ({command}) return an error : {err}')
-                value = None
+            else:
+                value = stdout.read().decode()
+                value = value[:-1] if value.endswith('\n') else value
+                err = stderr.read().decode()
+                err = err[:-1] if err.endswith('\n') else err
+                if err != '':
+                    logger.warning(
+                        f'{program} cmd ({command}) return an error : {err}')
+                    value = None
         elif self._device.filedevice.protocol == 2:  # file downloaded over ftp
             file_path = self._device.filedevice.local_temporary_file_copy_path
             value = self.read_from_local_file(file_path, variable_instance, timeout)
@@ -200,18 +203,31 @@ class GenericDevice(GenericHandlerDevice):
                             file_path = self._device.filedevice.file_path
                             program = var.filevariable.program
                             command = var.filevariable.command.replace('$value$', str(value))
-                            stdin, stdout, stderr = self.inst.exec_command(
-                                str(program) + ' ' + str(repr(command)) + ' ' + str(file_path),
-                                timeout=timeout)
-                            read_value = stdout.read().decode()
-                            err = stderr.read().decode()
-                            if err != '':
-                                logger.warning(
-                                    f'{program} cmd ({command}) return an error : {err}')
-                                value = None
+                            try:
+                                stdin, stdout, stderr = self.inst.exec_command(
+                                    str(program) + ' ' + str(repr(command)) + ' ' + str(file_path),
+                                    timeout=timeout)
+                            except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
+                                    socket.timeout, paramiko.ssh_exception.AuthenticationException,
+                                    paramiko.ssh_exception.NoValidConnectionsError) as e:
+                                # logger.warning(f'Error while reading to file {self._device} : {e}')
+                                pass
                             else:
-                                self.inst.exec_command('echo ' + str(repr(read_value)) + ' > ' + str(file_path), timeout=timeout)
-
+                                read_value = stdout.read().decode()
+                                err = stderr.read().decode()
+                                if err != '':
+                                    logger.warning(
+                                        f'{program} cmd ({command}) return an error : {err}')
+                                    value = None
+                                else:
+                                    try:
+                                        self.inst.exec_command('echo ' + str(repr(read_value)) + ' > ' + str(file_path),
+                                                               timeout=timeout)
+                                    except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
+                                            socket.timeout, paramiko.ssh_exception.AuthenticationException,
+                                            paramiko.ssh_exception.NoValidConnectionsError) as e:
+                                        # logger.warning(f'Error while reading to file {self._device} : {e}')
+                                        pass
                         elif self._device.filedevice.protocol == 2:  # file downloaded over ftp
                             file_path = self._device.filedevice.local_temporary_file_copy_path
                             self.write_to_local_file(self, file_path, var, timeout)
