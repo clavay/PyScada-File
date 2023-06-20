@@ -4,15 +4,14 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('file', '0002_add_device_protocol'),
+        ("file", "0002_add_device_protocol"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='filedevice',
-            old_name='remote_file_path',
-            new_name='file_path',
+            model_name="filedevice",
+            old_name="remote_file_path",
+            new_name="file_path",
         ),
     ]

@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('file', '0003_rename_remote_file_path_filedevice_file_path'),
+        ("file", "0003_rename_remote_file_path_filedevice_file_path"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='filedevice',
-            name='host',
-            field=models.CharField(default='test.com', max_length=200),
+            model_name="filedevice",
+            name="host",
+            field=models.CharField(default="test.com", max_length=200),
         ),
     ]

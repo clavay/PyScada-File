@@ -16,10 +16,14 @@ logger = logging.getLogger(__name__)
 
 
 class FileDevice(models.Model):
-    file_device = models.OneToOneField(Device, null=True, blank=True, on_delete=models.CASCADE)
-    protocol_choices = ((0, 'local'), (1, 'ssh'), (2, 'ftp'))
+    file_device = models.OneToOneField(
+        Device, null=True, blank=True, on_delete=models.CASCADE
+    )
+    protocol_choices = ((0, "local"), (1, "ssh"), (2, "ftp"))
     protocol = models.PositiveSmallIntegerField(choices=protocol_choices)
-    file_path = models.CharField(default="", blank=True, help_text="For example : /dir/file.txt", max_length=100)
+    file_path = models.CharField(
+        default="", blank=True, help_text="For example : /dir/file.txt", max_length=100
+    )
     timeout = models.PositiveSmallIntegerField(default=5, help_text="in seconds")
 
     # SSH and FTP
@@ -30,22 +34,23 @@ class FileDevice(models.Model):
 
     # FTP
     ftp_passive_mode = models.BooleanField(default=True)
-    local_temporary_file_copy_path = models.CharField(default="", blank=True, help_text="For example : /tmp/file.txt",
-                                                      max_length=100)
+    local_temporary_file_copy_path = models.CharField(
+        default="", blank=True, help_text="For example : /tmp/file.txt", max_length=100
+    )
 
     protocol_id = PROTOCOL_ID
 
     class FormSet(BaseInlineFormSet):
         def add_fields(self, form, index):
             super().add_fields(form, index)
-            form.fields['protocol'].widget.attrs = {
-                    # all hidden by default
-                    "--hideshow-fields": "host, port, username, password, ftp_passive_mode, local_temporary_file_copy_path",
-                    # host, port, username, password visible when "1" (ssh) is selected
-                    "--show-on-1": "host, port, username, password",
-                    # host, port, username, password, ftp_passive_mode, local_temporary_file_copy_path visible when "2" (ftp) is selected
-                    "--show-on-2": "host, port, username, password, ftp_passive_mode, local_temporary_file_copy_path",
-                }
+            form.fields["protocol"].widget.attrs = {
+                # all hidden by default
+                "--hideshow-fields": "host, port, username, password, ftp_passive_mode, local_temporary_file_copy_path",
+                # host, port, username, password visible when "1" (ssh) is selected
+                "--show-on-1": "host, port, username, password",
+                # host, port, username, password, ftp_passive_mode, local_temporary_file_copy_path visible when "2" (ftp) is selected
+                "--show-on-2": "host, port, username, password, ftp_passive_mode, local_temporary_file_copy_path",
+            }
 
     def parent_device(self):
         try:
@@ -58,12 +63,21 @@ class FileDevice(models.Model):
 
 
 class FileVariable(models.Model):
-    file_variable = models.OneToOneField(Variable, null=True, blank=True, on_delete=models.CASCADE)
-    program_choices = (('awk', 'awk'), ('sed', 'sed'),)
-    program = models.CharField(default='awk', choices=program_choices, max_length=25)
-    command = models.CharField(default="NR==1{ print; exit }", blank=True, max_length=500,
-                               help_text="Look at https://www.gnu.org/software/gawk/manual/gawk.html"
-                                         "<br> To write, use $value$ where the variable value should be placed.")
+    file_variable = models.OneToOneField(
+        Variable, null=True, blank=True, on_delete=models.CASCADE
+    )
+    program_choices = (
+        ("awk", "awk"),
+        ("sed", "sed"),
+    )
+    program = models.CharField(default="awk", choices=program_choices, max_length=25)
+    command = models.CharField(
+        default="NR==1{ print; exit }",
+        blank=True,
+        max_length=500,
+        help_text="Look at https://www.gnu.org/software/gawk/manual/gawk.html"
+        "<br> To write, use $value$ where the variable value should be placed.",
+    )
 
     protocol_id = PROTOCOL_ID
 
@@ -74,12 +88,12 @@ class FileVariable(models.Model):
 class ExtendedFileDevice(Device):
     class Meta:
         proxy = True
-        verbose_name = 'File Device'
-        verbose_name_plural = 'File Devices'
+        verbose_name = "File Device"
+        verbose_name_plural = "File Devices"
 
 
 class ExtendedFileVariable(Variable):
     class Meta:
         proxy = True
-        verbose_name = 'File Variable'
-        verbose_name_plural = 'File Variables'
+        verbose_name = "File Variable"
+        verbose_name_plural = "File Variables"

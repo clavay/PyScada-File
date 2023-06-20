@@ -12,15 +12,19 @@ def forwards_func(apps, schema_editor):
     DeviceProtocol = apps.get_model("pyscada", "DeviceProtocol")
     db_alias = schema_editor.connection.alias
     if not DeviceProtocol.objects.using(db_alias).filter(pk=PROTOCOL_ID):
-        DeviceProtocol.objects.using(db_alias).bulk_create([
-            DeviceProtocol(pk=PROTOCOL_ID,
-                           protocol='file',
-                           description='File Interface',
-                           app_name='pyscada.file',
-                           device_class='pyscada.file.device',
-                           daq_daemon=True,
-                           single_thread=True),
-        ])
+        DeviceProtocol.objects.using(db_alias).bulk_create(
+            [
+                DeviceProtocol(
+                    pk=PROTOCOL_ID,
+                    protocol="file",
+                    description="File Interface",
+                    app_name="pyscada.file",
+                    device_class="pyscada.file.device",
+                    daq_daemon=True,
+                    single_thread=True,
+                ),
+            ]
+        )
 
 
 def reverse_func(apps, schema_editor):
@@ -28,12 +32,12 @@ def reverse_func(apps, schema_editor):
     # so reverse_func() should delete them.
     DeviceProtocol = apps.get_model("pyscada", "DeviceProtocol")
     db_alias = schema_editor.connection.alias
-    DeviceProtocol.objects.using(db_alias).filter(protocol='file').delete()
+    DeviceProtocol.objects.using(db_alias).filter(protocol="file").delete()
 
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('file', '0001_initial'),
+        ("file", "0001_initial"),
     ]
 
     operations = [

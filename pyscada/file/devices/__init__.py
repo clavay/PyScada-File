@@ -62,10 +62,12 @@ class GenericDevice(GenericHandlerDevice):
             except FileNotFoundError:
                 try:
                     Path(file_path).touch()
-                    logger.info(f'{file_path} does not exit, touching it.')
+                    logger.info(f"{file_path} does not exit, touching it.")
                 except PermissionError:
                     # logger.warning(f'pyscada user is not allowed to create the file {file_path}')
-                    self._not_accessible_reason = f'pyscada user is not allowed to create the file {file_path}'
+                    self._not_accessible_reason = (
+                        f"pyscada user is not allowed to create the file {file_path}"
+                    )
                     connected = False
 
         elif self._device.filedevice.protocol == 1:
@@ -80,24 +82,33 @@ class GenericDevice(GenericHandlerDevice):
             self.inst.set_missing_host_key_policy(paramiko.WarningPolicy())
             try:
                 self.inst.connect(hostname, port, username, password, timeout=timeout)
-            except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
-                    socket.timeout, paramiko.ssh_exception.AuthenticationException,
-                    paramiko.ssh_exception.NoValidConnectionsError) as e:
+            except (
+                socket.gaierror,
+                paramiko.ssh_exception.SSHException,
+                OSError,
+                socket.timeout,
+                paramiko.ssh_exception.AuthenticationException,
+                paramiko.ssh_exception.NoValidConnectionsError,
+            ) as e:
                 # logger.warning(e)
                 self._not_accessible_reason = e
                 self.inst = None
                 connected = False
 
         elif self._device.filedevice.protocol == 2:
-            self.my_session_factory = ftputil.session.session_factory(port=self._device.filedevice.port,
-                                                                      use_passive_mode=self._device.filedevice.ftp_passive_mode,
-                                                                      debug_level=0)
+            self.my_session_factory = ftputil.session.session_factory(
+                port=self._device.filedevice.port,
+                use_passive_mode=self._device.filedevice.ftp_passive_mode,
+                debug_level=0,
+            )
 
             try:
-                self.inst = ftputil.FTPHost(self._device.filedevice.host,
-                                            self._device.filedevice.username,
-                                            self._device.filedevice.password,
-                                            session_factory=self.my_session_factory)
+                self.inst = ftputil.FTPHost(
+                    self._device.filedevice.host,
+                    self._device.filedevice.username,
+                    self._device.filedevice.password,
+                    session_factory=self.my_session_factory,
+                )
             except ftputil.error.FTPOSError:
                 pass
             except Exception as e:
@@ -122,34 +133,44 @@ class GenericDevice(GenericHandlerDevice):
         """
         value = None
         timeout = self._device.filedevice.timeout
-        if "$value$" in variable_instance.filevariable.command:  # this is a writeable var
+        if (
+            "$value$" in variable_instance.filevariable.command
+        ):  # this is a writeable var
             return None
         if self._device.filedevice.protocol == 0:  # local file
             file_path = self._device.filedevice.file_path
             value = self.read_from_local_file(file_path, variable_instance, timeout)
         elif self._device.filedevice.protocol == 1:  # file over ssh
             if self.inst is None:
-                logger.warning(f"Device {self._device} not connected. Cannot read file over ssh.")
+                logger.warning(
+                    f"Device {self._device} not connected. Cannot read file over ssh."
+                )
                 return None
             file_path = self._device.filedevice.file_path
             program = variable_instance.filevariable.program
             command = variable_instance.filevariable.command
             try:
-                stdin, stdout, stderr = self.inst.exec_command(str(program) + ' ' + str(repr(command)) + ' ' +
-                                                               str(file_path), timeout=timeout)
-            except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
-                    socket.timeout, paramiko.ssh_exception.AuthenticationException,
-                    paramiko.ssh_exception.NoValidConnectionsError) as e:
-                #logger.warning(f'Error while reading to file {self._device} : {e}')
+                stdin, stdout, stderr = self.inst.exec_command(
+                    str(program) + " " + str(repr(command)) + " " + str(file_path),
+                    timeout=timeout,
+                )
+            except (
+                socket.gaierror,
+                paramiko.ssh_exception.SSHException,
+                OSError,
+                socket.timeout,
+                paramiko.ssh_exception.AuthenticationException,
+                paramiko.ssh_exception.NoValidConnectionsError,
+            ) as e:
+                # logger.warning(f'Error while reading to file {self._device} : {e}')
                 pass
             else:
                 value = stdout.read().decode()
-                value = value[:-1] if value.endswith('\n') else value
+                value = value[:-1] if value.endswith("\n") else value
                 err = stderr.read().decode()
-                err = err[:-1] if err.endswith('\n') else err
-                if err != '':
-                    logger.warning(
-                        f'{program} cmd ({command}) return an error : {err}')
+                err = err[:-1] if err.endswith("\n") else err
+                if err != "":
+                    logger.warning(f"{program} cmd ({command}) return an error : {err}")
                     value = None
         elif self._device.filedevice.protocol == 2:  # file downloaded over ftp
             file_path = self._device.filedevice.local_temporary_file_copy_path
@@ -164,15 +185,17 @@ class GenericDevice(GenericHandlerDevice):
             program = variable_instance.filevariable.program
             command = variable_instance.filevariable.command
             cmd = [program, command, file_path]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=timeout
+            )
             value = result.stdout
 
-            if result.stderr != '':
+            if result.stderr != "":
                 logger.warning(
-                    f'{program} cmd ({command}) return an error : {result.stderr}')
+                    f"{program} cmd ({command}) return an error : {result.stderr}"
+                )
             if result.returncode > 0:
-                logger.warning(
-                    f'{program} cmd ({command}) failed')
+                logger.warning(f"{program} cmd ({command}) failed")
         except:
             logger.warning(traceback.format_exc())
         return value
@@ -188,8 +211,16 @@ class GenericDevice(GenericHandlerDevice):
                     if variable_id == var.id:
                         timeout = self._device.filedevice.timeout
 
-                        if var.dictionary is not None and len(var.dictionary.dictionaryitem_set.filter(value=int(value))):
-                            value = var.dictionary.dictionaryitem_set.filter(value=int(value)).first().label
+                        if var.dictionary is not None and len(
+                            var.dictionary.dictionaryitem_set.filter(value=int(value))
+                        ):
+                            value = (
+                                var.dictionary.dictionaryitem_set.filter(
+                                    value=int(value)
+                                )
+                                .first()
+                                .label
+                            )
 
                         file_path = None
                         if self._device.filedevice.protocol == 0:  # local file
@@ -198,46 +229,77 @@ class GenericDevice(GenericHandlerDevice):
 
                         elif self._device.filedevice.protocol == 1:  # file over ssh
                             if self.inst is None:
-                                logger.warning(f"Device {self._device} not connected. Cannot write file over ssh.")
+                                logger.warning(
+                                    f"Device {self._device} not connected. Cannot write file over ssh."
+                                )
                                 return None
                             file_path = self._device.filedevice.file_path
                             program = var.filevariable.program
-                            command = var.filevariable.command.replace('$value$', str(value))
+                            command = var.filevariable.command.replace(
+                                "$value$", str(value)
+                            )
                             try:
                                 stdin, stdout, stderr = self.inst.exec_command(
-                                    str(program) + ' ' + str(repr(command)) + ' ' + str(file_path),
-                                    timeout=timeout)
-                            except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
-                                    socket.timeout, paramiko.ssh_exception.AuthenticationException,
-                                    paramiko.ssh_exception.NoValidConnectionsError) as e:
+                                    str(program)
+                                    + " "
+                                    + str(repr(command))
+                                    + " "
+                                    + str(file_path),
+                                    timeout=timeout,
+                                )
+                            except (
+                                socket.gaierror,
+                                paramiko.ssh_exception.SSHException,
+                                OSError,
+                                socket.timeout,
+                                paramiko.ssh_exception.AuthenticationException,
+                                paramiko.ssh_exception.NoValidConnectionsError,
+                            ) as e:
                                 # logger.warning(f'Error while reading to file {self._device} : {e}')
                                 pass
                             else:
                                 read_value = stdout.read().decode()
                                 err = stderr.read().decode()
-                                if err != '':
+                                if err != "":
                                     logger.warning(
-                                        f'{program} cmd ({command}) return an error : {err}')
+                                        f"{program} cmd ({command}) return an error : {err}"
+                                    )
                                     value = None
                                 else:
                                     try:
-                                        self.inst.exec_command('echo ' + str(repr(read_value)) + ' > ' + str(file_path),
-                                                               timeout=timeout)
-                                    except (socket.gaierror, paramiko.ssh_exception.SSHException, OSError,
-                                            socket.timeout, paramiko.ssh_exception.AuthenticationException,
-                                            paramiko.ssh_exception.NoValidConnectionsError) as e:
+                                        self.inst.exec_command(
+                                            "echo "
+                                            + str(repr(read_value))
+                                            + " > "
+                                            + str(file_path),
+                                            timeout=timeout,
+                                        )
+                                    except (
+                                        socket.gaierror,
+                                        paramiko.ssh_exception.SSHException,
+                                        OSError,
+                                        socket.timeout,
+                                        paramiko.ssh_exception.AuthenticationException,
+                                        paramiko.ssh_exception.NoValidConnectionsError,
+                                    ) as e:
                                         # logger.warning(f'Error while reading to file {self._device} : {e}')
                                         pass
-                        elif self._device.filedevice.protocol == 2:  # file downloaded over ftp
-                            file_path = self._device.filedevice.local_temporary_file_copy_path
+                        elif (
+                            self._device.filedevice.protocol == 2
+                        ):  # file downloaded over ftp
+                            file_path = (
+                                self._device.filedevice.local_temporary_file_copy_path
+                            )
                             self.write_to_local_file(self, file_path, var, timeout)
 
                         self._device.filedevice.protocol < 2 or self.upload()
                         self.disconnect()
                         return value
-                logger.warning(f'Variable {variable_id} not in variable list {self._variables} of device {self._device}')
+                logger.warning(
+                    f"Variable {variable_id} not in variable list {self._variables} of device {self._device}"
+                )
             else:
-                logger.warning(f'Write failed for {self._device}')
+                logger.warning(f"Write failed for {self._device}")
         except:
             logger.warning(traceback.format_exc())
 
@@ -247,13 +309,23 @@ class GenericDevice(GenericHandlerDevice):
     def write_to_local_file(self, file_path, variable_instance, timeout):
         value = None
         try:
-            cmd = [variable_instance.filevariable.program, str(variable_instance.filevariable.command).replace('$value$', str(value)),
-                   file_path]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            cmd = [
+                variable_instance.filevariable.program,
+                str(variable_instance.filevariable.command).replace(
+                    "$value$", str(value)
+                ),
+                file_path,
+            ]
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, timeout=timeout
+            )
             value = result.stdout
 
             if result.returncode == 0:
-                if self._device.filedevice.protocol == 0 or self._device.filedevice.protocol == 2:
+                if (
+                    self._device.filedevice.protocol == 0
+                    or self._device.filedevice.protocol == 2
+                ):
                     open(file_path, "w").write(str(value))
         except:
             logger.warning(traceback.format_exc())
@@ -265,19 +337,23 @@ class GenericDevice(GenericHandlerDevice):
                 self._not_accessible_reason = "Wrong protocol"
                 return False
             if self.inst is None:
-                self._not_accessible_reason = f"Device {self._device} not connected. Cannot download file."
+                self._not_accessible_reason = (
+                    f"Device {self._device} not connected. Cannot download file."
+                )
                 return False
-            if not hasattr(self.inst, 'path'):
+            if not hasattr(self.inst, "path"):
                 self._not_accessible_reason = "FTP instrument has not path functions"
                 return False
             if self.inst.path.isfile(self._device.filedevice.file_path):
-                self.inst.download(self._device.filedevice.file_path,
-                                   self._device.filedevice.local_temporary_file_copy_path)
+                self.inst.download(
+                    self._device.filedevice.file_path,
+                    self._device.filedevice.local_temporary_file_copy_path,
+                )
             else:
-                self._not_accessible_reason = f'{self._device.filedevice.file_path} is not a file on FTP {self._device.filedevice.host}'
+                self._not_accessible_reason = f"{self._device.filedevice.file_path} is not a file on FTP {self._device.filedevice.host}"
                 return False
         except ftputil.error.FTPOSError as e:
-            self._not_accessible_reason = f'FTP connection to {self._device} return {e}'
+            self._not_accessible_reason = f"FTP connection to {self._device} return {e}"
             return False
         except Exception as e:
             # logger.warning(traceback.format_exc())
@@ -288,7 +364,9 @@ class GenericDevice(GenericHandlerDevice):
         try:
             open(file_path, "r")
         except FileNotFoundError:
-            self._not_accessible_reason = f'Cannot open downloaded FTP file : {file_path}'
+            self._not_accessible_reason = (
+                f"Cannot open downloaded FTP file : {file_path}"
+            )
             return False
         return True
 
@@ -297,15 +375,20 @@ class GenericDevice(GenericHandlerDevice):
             if self._device.filedevice.protocol < 2:
                 return False
             if self.inst is None:
-                logger.warning(f"Device {self._device} not connected. Cannot upload file.")
+                logger.warning(
+                    f"Device {self._device} not connected. Cannot upload file."
+                )
                 return False
             if os.path.isfile(self._device.filedevice.local_temporary_file_copy_path):
-                self.inst.upload(self._device.filedevice.local_temporary_file_copy_path,
-                                 self._device.filedevice.file_path)
+                self.inst.upload(
+                    self._device.filedevice.local_temporary_file_copy_path,
+                    self._device.filedevice.file_path,
+                )
                 return True
             else:
                 logger.warning(
-                    f'{self._device.filedevice.local_temporary_file_copy_path} is not a file on localhost {self._device.filedevice.host}')
+                    f"{self._device.filedevice.local_temporary_file_copy_path} is not a file on localhost {self._device.filedevice.host}"
+                )
         except Exception as e:
             logger.warning(traceback.format_exc())
         return False

@@ -20,8 +20,8 @@ class FileDeviceAdminInline(admin.StackedInline):
 
 class FileDeviceAdmin(DeviceAdmin):
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == 'protocol':
-            kwargs['queryset'] = DeviceProtocol.objects.filter(pk=PROTOCOL_ID)
+        if db_field.name == "protocol":
+            kwargs["queryset"] = DeviceProtocol.objects.filter(pk=PROTOCOL_ID)
             db_field.default = PROTOCOL_ID
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
@@ -30,9 +30,7 @@ class FileDeviceAdmin(DeviceAdmin):
         qs = super().get_queryset(request)
         return qs.filter(protocol_id=PROTOCOL_ID)
 
-    inlines = [
-        FileDeviceAdminInline
-    ]
+    inlines = [FileDeviceAdminInline]
 
 
 class FileVariableAdminInline(admin.StackedInline):
@@ -40,13 +38,25 @@ class FileVariableAdminInline(admin.StackedInline):
 
 
 class FileVariableAdmin(VariableAdmin):
-    list_display = ('id', 'name', 'description', 'unit', 'device_name', 'value_class', 'active', 'writeable')
-    list_editable = ('active', 'writeable',)
-    list_display_links = ('name',)
+    list_display = (
+        "id",
+        "name",
+        "description",
+        "unit",
+        "device_name",
+        "value_class",
+        "active",
+        "writeable",
+    )
+    list_editable = (
+        "active",
+        "writeable",
+    )
+    list_display_links = ("name",)
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == 'device':
-            kwargs['queryset'] = Device.objects.filter(protocol=PROTOCOL_ID)
+        if db_field.name == "device":
+            kwargs["queryset"] = Device.objects.filter(protocol=PROTOCOL_ID)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def get_queryset(self, request):
@@ -54,9 +64,7 @@ class FileVariableAdmin(VariableAdmin):
         qs = super().get_queryset(request)
         return qs.filter(device__protocol_id=PROTOCOL_ID)
 
-    inlines = [
-        FileVariableAdminInline
-    ]
+    inlines = [FileVariableAdminInline]
 
 
 # admin_site.register(ExtendedFileDevice, FileDeviceAdmin)
