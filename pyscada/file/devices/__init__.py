@@ -21,13 +21,13 @@ driver_ok = True
 try:
     import ftputil
 except ImportError:
-    logger.error("Cannot import ftputil")
+    logger.error("Cannot import ftputil", exc_info=True)
     driver_ok = False
 
 try:
     import paramiko
 except ImportError:
-    logger.error("Cannot import paramiko")
+    logger.error("Cannot import paramiko", exc_info=True)
     driver_ok = False
 
 

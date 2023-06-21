@@ -15,7 +15,7 @@ try:
 
     driver_ok = True
 except ImportError:
-    logger.error("Cannot import ftputil")
+    logger.error("Cannot import ftputil", exc_info=True)
     driver_ok = False
 
 
