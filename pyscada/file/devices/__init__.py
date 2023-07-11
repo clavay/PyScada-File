@@ -89,6 +89,7 @@ class GenericDevice(GenericHandlerDevice):
                 socket.timeout,
                 paramiko.ssh_exception.AuthenticationException,
                 paramiko.ssh_exception.NoValidConnectionsError,
+                ConnectionResetError,
             ) as e:
                 # logger.warning(e)
                 self._not_accessible_reason = e
@@ -161,6 +162,7 @@ class GenericDevice(GenericHandlerDevice):
                 socket.timeout,
                 paramiko.ssh_exception.AuthenticationException,
                 paramiko.ssh_exception.NoValidConnectionsError,
+                ConnectionResetError,
             ) as e:
                 # logger.warning(f'Error while reading to file {self._device} : {e}')
                 pass
@@ -254,6 +256,7 @@ class GenericDevice(GenericHandlerDevice):
                                 socket.timeout,
                                 paramiko.ssh_exception.AuthenticationException,
                                 paramiko.ssh_exception.NoValidConnectionsError,
+                                ConnectionResetError,
                             ) as e:
                                 # logger.warning(f'Error while reading to file {self._device} : {e}')
                                 pass
@@ -281,6 +284,7 @@ class GenericDevice(GenericHandlerDevice):
                                         socket.timeout,
                                         paramiko.ssh_exception.AuthenticationException,
                                         paramiko.ssh_exception.NoValidConnectionsError,
+                                        ConnectionResetError,
                                     ) as e:
                                         # logger.warning(f'Error while reading to file {self._device} : {e}')
                                         pass
