@@ -81,7 +81,7 @@ class GenericDevice(GenericHandlerDevice):
             self.inst.load_system_host_keys()
             self.inst.set_missing_host_key_policy(paramiko.WarningPolicy())
             try:
-                self.inst.connect(hostname, port, username, password, timeout=timeout)
+                self.inst.connect(hostname, port, username, password, timeout=timeout, allow_agent=False)
             except (
                 socket.gaierror,
                 paramiko.ssh_exception.SSHException,
