@@ -92,7 +92,7 @@ class GenericDevice(GenericHandlerDevice):
                 ConnectionResetError,
             ) as e:
                 # logger.warning(e)
-                self._not_accessible_reason = e
+                self._not_accessible_reason = f"connect failed : {e}"
                 self.inst = None
                 connected = False
 
@@ -113,7 +113,7 @@ class GenericDevice(GenericHandlerDevice):
             except ftputil.error.FTPOSError:
                 pass
             except Exception as e:
-                self._not_accessible_reason = e
+                self._not_accessible_reason = f"connect failed : {e}"
                 # logger.warning(traceback.format_exc())
 
             connected = self.download()
@@ -361,7 +361,7 @@ class GenericDevice(GenericHandlerDevice):
             return False
         except Exception as e:
             # logger.warning(traceback.format_exc())
-            self._not_accessible_reason = e
+            self._not_accessible_reason = f"download failed : {e}"
             return False
 
         file_path = self._device.filedevice.local_temporary_file_copy_path
